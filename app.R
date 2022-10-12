@@ -1,5 +1,4 @@
 library(shiny)
-library(plotly)
 library(tidyverse)
 library(geomtextpath)
 
@@ -33,10 +32,8 @@ ui <- fluidPage(
 
         mainPanel(
           
-          fluidRow(column = 2,
            plotOutput("plot_costs"),
            plotOutput("plot_prices")
-           )
         )
     )
 )
@@ -45,7 +42,9 @@ server <- function(input, output) {
   
   
   rebate <- 
-    reactive({input$consumption_2022*max(input$price_gas_2023-12) * 0.8/100})
+    reactive({input$consumption_2022*max(input$price_gas_2023-12,0) * 0.8/100})
+  
+  break_even <- reactive({round(rebate/input$price_gas_2023)})
   
   consumption <- 0:20000
   
@@ -53,7 +52,10 @@ server <- function(input, output) {
   cost_rebate <- reactive(pmax(0,cost_norebate()-rebate()))
   cost_price2022 <- reactive(consumption*input$price_gas_2022/100)
   
-  prices_avg_rebate <- reactive(cost_rebate()/consumption*100)
+  cost_avg_rebate <- reactive(cost_rebate()/consumption*100)
+  cost_marginal_2023_rebate <- reactive(100*c(0,diff(cost_rebate())))
+  
+  
   
   output$plot_costs <- 
     renderPlot({
@@ -61,17 +63,20 @@ server <- function(input, output) {
       ggplot(mapping = aes(x= consumption))+
         geom_textline(mapping = aes(y = cost_norebate()),
                       color = "blue",
-                      label = "Kosten 2023 zu neuem Preis"
+                      label = "Kosten 2023 zu neuem Preis",
+                      hjust = 0.8
                   )+
         geom_textline(mapping = aes(y = cost_rebate()),
                       label= paste("Kosten 2023 zu neuem Preis abzgl. maximal einer Pauschale von",
                                    round(rebate(),0),
                                    "€"
-                                   )
+                                   ),
+                      hjust = 0.8
                       )+
         geom_textline(mapping = aes(y = cost_price2022()),
                   label= "fiktive Kosten 2023 zu altem Preis",
-                  color = "red"
+                  color = "red",
+                  hjust = 0.8
                   )+
         labs(x = "Verbrauch 2023 (in kWh)",
              y = "Gesamtkosten (in €)"
@@ -82,20 +87,25 @@ server <- function(input, output) {
   output$plot_prices <- 
     renderPlot({
       
+
       ggplot(mapping = aes(x= consumption))+
-        geom_textline(mapping = aes(y = prices_avg_rebate()),
-                      label = "durchschnittl. Kosten 2023")+
-        geom_texthline(yintercept = input$price_gas_2023,
-                       color = "blue",
-                       label = "marginale Kosten 2023")+
+        geom_textline(mapping = aes(y = cost_avg_rebate()),
+                      label = "durchschnittl. Kosten 2023",
+                      hjust = 0.8
+                      )+
+        geom_textline(mapping = aes(y = cost_marginal_2023_rebate()),
+                      color = "blue",
+                      label = "marginale Kosten zu Preis in 2023 mit Pauschale",
+                      hjust = 0.8
+                      )+
         geom_texthline(yintercept = input$price_gas_2022,
                        color = "red",
-                       label = "marginale Kosten 2022"
+                       label = "marginale Kosten zu Preis in 2022 ohne Pauschale",
+                       hjust = 0.8
                    )+
         labs(x = "Verbrauch 2023 (in kWh)",
              y = "marginale/durchschnittl. Gaskosten (in Cent pro kWh)") +
-        theme_minimal()
-      
+        theme_minimal() 
       
     })
   
