@@ -10,11 +10,17 @@ ui <- fluidPage(
     sidebarLayout(
         sidebarPanel(
             sliderInput("consumption_2022",
-                        "Verbrauch 2022:",
+                        "Verbrauch 2022 (80% davon werden für Pauschale berücksichtigt):",
                         min = 0,
                         max = 20000,
                         value = 10000
                         ),
+            sliderInput("price_rebate",
+                        "Referenzpreis für Gaspauschale (in Cent pro kWh, Vorschlag Kommission: 12)",
+                        min = 0,
+                        max = 60,
+                        value = 12),
+            textOutput("max_rebate"),
             sliderInput("price_gas_2022",
                         "Alter Arbeitspreis 2022 (in Cent pro kWh)",
                         min = 0,
@@ -26,7 +32,7 @@ ui <- fluidPage(
                         min = 0,
                         max = 60,
                         value = 20
-            )
+                        )
 
         ),
 
@@ -42,9 +48,9 @@ server <- function(input, output) {
   
   
   rebate <- 
-    reactive({input$consumption_2022*max(input$price_gas_2023-12,0) * 0.8/100})
+    reactive({input$consumption_2022*max(input$price_gas_2023-input$price_rebate,0) * 0.8/100})
   
-  break_even <- reactive({round(rebate/input$price_gas_2023)})
+  output$max_rebate <- renderText({paste(" \n Maximale Pauschale:",round(rebate()), "€\n ")})
   
   consumption <- 0:20000
   
